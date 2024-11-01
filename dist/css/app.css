@@ -1672,12 +1672,6 @@ select {
   transition-duration: 150ms;
 }
 
-.transition-opacity {
-  transition-property: opacity;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
 .duration-300 {
   transition-duration: 300ms;
 }
@@ -1813,14 +1807,6 @@ select {
 
 .disabled\:opacity-50:disabled {
   opacity: 0.5;
-}
-
-.hs-tooltip.show .hs-tooltip-shown\:visible {
-  visibility: visible;
-}
-
-.hs-tooltip.show .hs-tooltip-shown\:opacity-100 {
-  opacity: 1;
 }
 
 .open.hs-overlay-open\:mt-7 {
