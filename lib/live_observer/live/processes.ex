@@ -25,20 +25,39 @@ defmodule LiveObserver.Live.Processes do
 
   @impl true
   def mount(_params, _sesssion, socket) do
-    processes = get_processes()
+    sorter = {"name", :asc}
+    processes = get_processes(sorter)
     if connected?(socket), do: Process.send_after(self(), :refresh, 5000)
-    {:ok, assign(socket, processes: processes)}
+    {:ok, assign(socket, processes: processes, sorter: sorter)}
   end
 
   @impl true
   def handle_info(:refresh, socket) do
-    processes = get_processes()
+    processes = get_processes(socket.assigns.sorter)
     if connected?(socket), do: Process.send_after(self(), :refresh, 5000)
     {:noreply, assign(socket, processes: processes)}
   end
 
   @impl true
   def handle_info(_, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("sort", %{"by" => type}, socket) do
+    {sort_col, sort_dir} = socket.assigns.sorter
+
+    sorter =
+      case type do
+        ^sort_col -> {sort_col, alt_sort_dir(sort_dir)}
+        new_col -> {new_col, :asc}
+      end
+
+    processes = get_processes(sorter)
+
+    {:noreply, assign(socket, processes: processes, sorter: sorter)}
+  end
+
+  defp alt_sort_dir(:asc), do: :desc
+  defp alt_sort_dir(:desc), do: :asc
 
   def classes_for_status(status) do
     case status do
@@ -77,65 +96,61 @@ defmodule LiveObserver.Live.Processes do
                   <tr>
                     <th scope="col" class="px-6 py-3 text-start">
                       <div class="flex items-center gap-x-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                        <a
+                          href="#"
+                          class="text-xs font-semibold uppercase tracking-wide text-gray-800"
+                          phx-click={Phoenix.LiveView.JS.push("sort", value: %{by: "name"})}
+                        >
                           Processs ID
-                        </span>
-                        <div class="hs-tooltip">
-                          <div class="hs-tooltip-toggle">
-                            <svg
-                              class="shrink-0 size-4 text-gray-500"
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="24"
-                              height="24"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            >
-                              <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" />
-                            </svg>
-                            <span
-                              class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-gray-900 text-xs font-medium text-white rounded shadow-sm"
-                              role="tooltip"
-                            >
-                              Internal BEAM process identifier
-                            </span>
-                          </div>
-                        </div>
+                        </a>
                       </div>
                     </th>
 
                     <th scope="col" class="px-6 py-3 text-start">
                       <div class="flex items-center gap-x-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                        <a
+                          href="#"
+                          class="text-xs font-semibold uppercase tracking-wide text-gray-800"
+                          phx-click={Phoenix.LiveView.JS.push("sort", value: %{by: "name"})}
+                        >
                           Name
-                        </span>
+                        </a>
                       </div>
                     </th>
 
                     <th scope="col" class="px-6 py-3 text-start">
                       <div class="flex items-center gap-x-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                        <a
+                          href="#"
+                          class="text-xs font-semibold uppercase tracking-wide text-gray-800"
+                          phx-click={Phoenix.LiveView.JS.push("sort", value: %{by: "status"})}
+                        >
                           Status
-                        </span>
+                        </a>
                       </div>
                     </th>
 
                     <th scope="col" class="px-6 py-3 text-start">
                       <div class="flex items-center gap-x-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                        <a
+                          href="#"
+                          class="text-xs font-semibold uppercase tracking-wide text-gray-800"
+                          phx-click={Phoenix.LiveView.JS.push("sort", value: %{by: "group_leader"})}
+                        >
                           Group Leader
-                        </span>
+                        </a>
                       </div>
                     </th>
 
                     <th scope="col" class="px-6 py-3 text-start">
                       <div class="flex items-center gap-x-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-800">
+                        <a
+                          href="#"
+                          class="text-xs font-semibold uppercase tracking-wide text-gray-800"
+                          phx-click={Phoenix.LiveView.JS.push("sort", value: %{by: "heap"})}
+                        >
                           Heap Size
-                        </span>
+                        </a>
                       </div>
                     </th>
 
@@ -145,7 +160,7 @@ defmodule LiveObserver.Live.Processes do
 
                 <tbody class="divide-y divide-gray-200">
                   <%= for {proc, info} <- @processes do %>
-                    <tr class="bg-white hover:bg-gray-50">
+                    <tr class="bg-white hover:bg-gray-50" id={"process-row-#{pid_to_str(proc)}"}>
                       <td class="size-px whitespace-nowrap">
                         <button
                           type="button"
@@ -558,7 +573,21 @@ defmodule LiveObserver.Live.Processes do
   # Maybe one day we'll be running the BEAM on a very, very powerful computer
   @units ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]
 
-  defp get_processes do
+  defp get_processes({sort_col, sort_dir}) do
+    sort_col =
+      case sort_col do
+        "name" -> :registered_name
+        "heap" -> :total_heap_size
+        "status" -> :status
+        "group_leader" -> :group_leader
+      end
+
+    sort_fn =
+      case sort_dir do
+        :asc -> &<=/2
+        :desc -> &>=/2
+      end
+
     Process.list()
     |> Enum.map(fn pid ->
       info = Process.info(pid, [:registered_name, :total_heap_size, :status, :group_leader])
@@ -572,6 +601,7 @@ defmodule LiveObserver.Live.Processes do
 
       {pid, info}
     end)
+    |> Enum.sort_by(fn {_proc, info} -> info[sort_col] end, sort_fn)
   end
 
   # If displaying the value in bytes, don't show decimal places.
