@@ -32,7 +32,7 @@ Application.put_env(:phoenix_live_observer, DemoWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"dist/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"css/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"assets/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"lib/.*(ex)$"
     ]
   ]
